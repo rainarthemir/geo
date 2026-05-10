@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Live Tracker</title>
+
+<link rel="stylesheet"
+ href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
+<style>
+html, body, #map {
+  height: 100%;
+  margin: 0;
+}
+
+.panel {
+  position: absolute;
+  z-index: 1000;
+  top: 10px;
+  left: 10px;
+  background: white;
+  padding: 10px;
+  border-radius: 10px;
+  font-family: sans-serif;
+}
+</style>
+</head>
+
+<body>
+
+<div class="panel">
+  <div>LIVE TRACKER</div>
+  <div id="status">Подключение...</div>
+</div>
+
+<div id="map"></div>
+
+<script>
+
+
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAhBIzshLpZFRCt8ndMwWgSApkoL61lYW0",
+  authDomain: "geoformytrip.firebaseapp.com",
+  databaseURL: "https://geoformytrip-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "geoformytrip",
+  storageBucket: "geoformytrip.firebasestorage.app",
+  messagingSenderId: "1020098843524",
+  appId: "1:1020098843524:web:48d1946193a229414b83d1",
+  measurementId: "G-ZZQMKVYY34"
+};
+
+
+
+firebase.initializeApp(firebaseConfig);
+
+const db = firebase.database();
+
+const map = L.map('map').setView([50.63, 3.06], 13);
+
+L.tileLayer(
+ 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+ {
+   maxZoom: 19
+ }).addTo(map);
+
+const marker = L.marker([50.63, 3.06]).addTo(map);
+
+const route = [
+ [50.63, 3.06],
+ [50.64, 3.08],
+ [50.65, 3.10]
+];
+
+L.polyline(route, {
+ color: 'blue'
+}).addTo(map);
+
+const params = new URLSearchParams(location.search);
+
+const mode = params.get("mode");
+
+if(mode === "send") {
+
+ document.getElementById("status").innerText =
+ "Телефон отправляет GPS";
+
+ navigator.geolocation.watchPosition(pos => {
+
+   db.ref("live").set({
+     lat: pos.coords.latitude,
+     lon: pos.coords.longitude,
+     speed: pos.coords.speed || 0,
+     time: Date.now()
+   });
+
+ });
+
+} else {
+
+ document.getElementById("status").innerText =
+ "Планшет получает GPS";
+
+ db.ref("live").on("value", snap => {
+
+   const data = snap.val();
+
+   if(!data) return;
+
+   marker.setLatLng([data.lat, data.lon]);
+
+   map.panTo([data.lat, data.lon]);
+
+ });
+
+}
+
+</script>
+
+</body>
+</html>
