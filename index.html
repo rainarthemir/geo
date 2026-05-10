@@ -3,22 +3,15 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Live Transit — Маршрут по дорогам от текущей позиции</title>
+    <title>Live Transit — Маршрут по дорогам (Send + View)</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <!-- полифилл для декодирования polyline (необязателен, но удобен) -->
     <script src="https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.1.1/src/polyline.js"></script>
     <style>
         * { box-sizing: border-box; }
-        html, body {
-            margin: 0;
-            height: 100%;
-            overflow: hidden;
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-            background: #111;
-        }
+        html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: #111; }
         #map { width: 100%; height: 100%; }
         .panel {
             position: absolute;
@@ -43,90 +36,19 @@
             .stop-list { max-height: 180px; }
             button, input { padding: 12px; font-size: 16px; }
         }
-        .title {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .line {
-            margin-top: 10px;
-            font-size: 15px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: baseline;
-            justify-content: space-between;
-        }
-        .big {
-            font-size: 26px;
-            font-weight: 800;
-            color: #ffb347;
-        }
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background: #2ecc71;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-            box-shadow: 0 0 4px #2ecc71;
-        }
-        .stop-list {
-            margin-top: 18px;
-            max-height: 200px;
-            overflow-y: auto;
-            border-top: 1px solid rgba(255,255,255,0.2);
-            padding-top: 12px;
-            font-size: 14px;
-        }
-        .stop {
-            margin-top: 8px;
-            padding: 6px 8px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .stop-index {
-            font-weight: bold;
-            background: #4da3ff30;
-            padding: 2px 8px;
-            border-radius: 30px;
-            font-size: 12px;
-            margin-right: 8px;
-        }
-        .next-stop {
-            background: rgba(77,163,255,0.3);
-            border-left: 4px solid #4da3ff;
-            font-weight: 600;
-        }
+        .title { font-size: 22px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .line { margin-top: 10px; font-size: 15px; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; }
+        .big { font-size: 26px; font-weight: 800; color: #ffb347; }
+        .status-dot { width: 10px; height: 10px; background: #2ecc71; border-radius: 50%; display: inline-block; margin-right: 8px; box-shadow: 0 0 4px #2ecc71; }
+        .stop-list { margin-top: 18px; max-height: 200px; overflow-y: auto; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 12px; font-size: 14px; }
+        .stop { margin-top: 8px; padding: 6px 8px; background: rgba(255,255,255,0.05); border-radius: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .stop-index { font-weight: bold; background: #4da3ff30; padding: 2px 8px; border-radius: 30px; font-size: 12px; margin-right: 8px; }
+        .next-stop { background: rgba(77,163,255,0.3); border-left: 4px solid #4da3ff; font-weight: 600; }
         input, button { border: none; border-radius: 40px; font-weight: 500; outline: none; }
-        input {
-            width: 100%;
-            margin-top: 10px;
-            padding: 12px 16px;
-            background: rgba(30,30,38,0.9);
-            color: white;
-            font-size: 15px;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
+        input { width: 100%; margin-top: 10px; padding: 12px 16px; background: rgba(30,30,38,0.9); color: white; font-size: 15px; border: 1px solid rgba(255,255,255,0.2); }
         input:focus { border-color: #4da3ff; background: #1e1e2a; }
         .button-group { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-        button {
-            background: #2c3e66;
-            color: white;
-            padding: 12px 16px;
-            font-size: 14px;
-            cursor: pointer;
-            flex: 1;
-            font-weight: 600;
-            transition: 0.2s;
-        }
+        button { background: #2c3e66; color: white; padding: 12px 16px; font-size: 14px; cursor: pointer; flex: 1; font-weight: 600; transition: 0.2s; }
         button.primary { background: #4da3ff; box-shadow: 0 2px 6px rgba(77,163,255,0.3); }
         button.danger { background: #6b2e2e; }
         button:hover { opacity: 0.9; transform: scale(0.98); }
@@ -134,27 +56,15 @@
         .coord-row input { flex: 1; margin-top: 0; }
         hr { margin: 16px 0 12px; border: none; border-top: 1px solid rgba(255,255,255,0.15); }
         .label-icon { font-weight: 500; font-size: 13px; opacity: 0.8; margin-top: 8px; margin-bottom: 4px; }
-        .route-stats {
-            background: rgba(0,0,0,0.5);
-            border-radius: 20px;
-            padding: 6px 12px;
-            margin-top: 10px;
-            font-size: 12px;
-            text-align: center;
-        }
-        .loading {
-            font-size: 12px;
-            color: #ffaa66;
-            text-align: center;
-            padding: 4px;
-        }
+        .route-stats { background: rgba(0,0,0,0.5); border-radius: 20px; padding: 6px 12px; margin-top: 10px; font-size: 12px; text-align: center; }
+        .loading { font-size: 12px; color: #ffaa66; text-align: center; padding: 4px; }
         .leaflet-control-attribution { display: none; }
     </style>
 </head>
 <body>
 <div id="map"></div>
 
-<div class="panel" id="mainPanel">
+<div class="panel">
     <div class="title">
         <span>🚆 LIVE ROUTE</span>
         <span id="modeBadge" style="font-size: 12px; background: #2c3e66; padding: 4px 10px; border-radius: 40px;"></span>
@@ -164,11 +74,10 @@
     <div class="line"><span>Следующая остановка:</span><span id="nextStop" style="font-weight:500;">—</span></div>
     <div class="line"><span>ETA:</span><span id="eta">—</span></div>
     <div class="line"><span>Обновление:</span><span id="lastUpdate">—</span></div>
-    <div id="routeStats" class="route-stats">🔄 Построение маршрута по дорогам...</div>
+    <div id="routeStats" class="route-stats">🔄 Построение маршрута...</div>
     <div id="loadingHint" class="loading"></div>
     <div class="stop-list" id="stopList"></div>
 
-    <!-- Блок редактора для send-режима -->
     <div id="editor" style="display:none">
         <hr>
         <div class="label-icon">🏷️ Название остановки</div>
@@ -181,18 +90,18 @@
             <input type="number" id="stopLon" step="any" placeholder="Долгота">
         </div>
         <div class="button-group">
-            <button id="useMyLocationBtn" class="primary" type="button">📍 Моё местоположение</button>
+            <button id="useMyLocationBtn" class="primary">📍 Моё местоположение</button>
         </div>
         <div class="button-group">
-            <button id="addStopBtn" class="primary" type="button">➕ Добавить остановку</button>
-            <button id="clearRouteBtn" class="danger" type="button">🗑️ Очистить маршрут</button>
+            <button id="addStopBtn" class="primary">➕ Добавить остановку</button>
+            <button id="clearRouteBtn" class="danger">🗑️ Очистить маршрут</button>
         </div>
-        <div style="font-size: 11px; margin-top: 8px; opacity:0.6; text-align:center;">Маршрут перестроится от вашей позиции по дорогам</div>
+        <div class="loading" style="font-size: 11px;">Маршрут перестроится от вашей позиции по дорогам</div>
     </div>
 </div>
 
 <script>
-    // ======================== FIREBASE ========================
+    // ==================== FIREBASE ====================
     const firebaseConfig = {
         apiKey: "AIzaSyAhBIzshLpZFRCt8ndMwWgSApkoL61lYW0",
         authDomain: "geoformytrip.firebaseapp.com",
@@ -205,24 +114,29 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // ======================== MAP ========================
+    // ==================== MAP ====================
     const map = L.map('map', { zoomControl: true }).setView([50.63, 3.06], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    // ======================== ОБЩИЕ ДАННЫЕ ========================
-    let stops = [];               // массив остановок {id, name, time, lat, lon, created}
+    // ==================== ОБЩИЕ ДАННЫЕ ====================
+    let stops = [];               // {id, name, time, lat, lon, created}
     let stopMarkers = [];
-    let currentRouteLine = null;  // полилиния маршрута по дорогам
+    let currentRouteLine = null;
     let vehicleMarker = L.marker([50.63, 3.06], { icon: L.divIcon({ html: "🚆", iconSize: [36,36], className: "vehicle-marker" }) }).addTo(map);
     let isLoadingRoute = false;
+    let lastRouteUpdateTime = 0;
+    let currentVehiclePos = null;   // {lat, lon}
 
-    // Функция расстояния для ближайшей остановки (прямая линия)
+    // Расстояние (гаверсинус) в км
     function distance(lat1, lon1, lat2, lon2) {
-        const R = 6371; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon1)*Math.PI/180;
+        const R = 6371;
+        const dLat = (lat2-lat1)*Math.PI/180;
+        const dLon = (lon2-lon1)*Math.PI/180;
         const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
         return 2*R*Math.asin(Math.sqrt(a));
     }
 
+    // Обновить ближайшую остановку (прямая линия)
     function updateNearestStop(lat, lon) {
         if (!stops.length) { document.getElementById("nextStop").innerText = "—"; document.getElementById("eta").innerText = "—"; return; }
         let best = null, bestDist = Infinity;
@@ -236,33 +150,31 @@
         } else { document.getElementById("nextStop").innerText = "—"; document.getElementById("eta").innerText = "—"; }
     }
 
-    // ==== ПОСТРОЕНИЕ МАРШРУТА ПО ДОРОГАМ С OSRM ====
-    async function fetchRouteFromOSRM(startLat, startLon, endLat, endLon) {
+    // ==== ЗАПРОС МАРШРУТА К OSRM (отрезок между двумя точками) ====
+    async function fetchRouteSegment(startLat, startLon, endLat, endLon) {
         const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=polyline`;
         try {
             const resp = await fetch(url);
             const json = await resp.json();
             if(json.code === "Ok" && json.routes.length) {
                 const polylineStr = json.routes[0].geometry;
-                const coords = polyline.decode(polylineStr); // возвращает [[lat,lng]]
-                return coords;
+                return polyline.decode(polylineStr); // [[lat, lng]]
             }
             return null;
         } catch(e) { console.warn(e); return null; }
     }
 
-    // Построение полного маршрута от start до всех остановок последовательно
-    async function buildRoadRouteFromStart(startLat, startLon, waypoints) {
-        // waypoints: массив остановок [{lat,lon}, ...] в порядке следования
+    // Построить полный маршрут от start до всех waypoints последовательно
+    async function buildFullRoute(startLat, startLon, waypoints) {
         if(!waypoints.length) return [];
         let fullCoords = [];
         let prevLat = startLat, prevLon = startLon;
         for(let i=0; i<waypoints.length; i++) {
             const wp = waypoints[i];
-            const segment = await fetchRouteFromOSRM(prevLat, prevLon, wp.lat, wp.lon);
+            const segment = await fetchRouteSegment(prevLat, prevLon, wp.lat, wp.lon);
             if(segment && segment.length) {
                 if(fullCoords.length === 0) fullCoords.push(...segment);
-                else fullCoords.push(...segment.slice(1)); // избегаем дубля точки стыка
+                else fullCoords.push(...segment.slice(1));
             } else {
                 // fallback прямая линия
                 const fallback = [[prevLat, prevLon], [wp.lat, wp.lon]];
@@ -274,38 +186,37 @@
         return fullCoords;
     }
 
-    // Отрисовка маршрута на карте
-    async function updateRoadRoute(startLat, startLon) {
+    // Отрисовка маршрута на карте (с debounce и флагом загрузки)
+    async function updateRoadRoute(startLat, startLon, force = false) {
         if(!stops.length) {
             if(currentRouteLine) map.removeLayer(currentRouteLine);
             currentRouteLine = null;
             document.getElementById("routeStats").innerHTML = "🚏 Нет остановок. Добавьте точки маршрута.";
             return;
         }
-        // Сортируем остановки по created (порядок добавления)
+        const now = Date.now();
+        if(!force && (now - lastRouteUpdateTime) < 3000 && isLoadingRoute) return; // не чаще 3 сек
+        lastRouteUpdateTime = now;
         const sortedStops = [...stops].sort((a,b)=> (a.created||0) - (b.created||0));
         const waypoints = sortedStops.map(s => ({ lat: s.lat, lon: s.lon }));
         const loadingDiv = document.getElementById("loadingHint");
         loadingDiv.innerText = "🔄 Прокладываем маршрут по дорогам...";
         isLoadingRoute = true;
         try {
-            const fullCoords = await buildRoadRouteFromStart(startLat, startLon, waypoints);
+            const fullCoords = await buildFullRoute(startLat, startLon, waypoints);
             if(currentRouteLine) map.removeLayer(currentRouteLine);
             if(fullCoords.length > 1) {
                 currentRouteLine = L.polyline(fullCoords, { color: '#4da3ff', weight: 6, opacity: 0.9, lineJoin: 'round' }).addTo(map);
-                // подгоняем карту под маршрут (только если нужно)
-                const bounds = L.latLngBounds(fullCoords);
-                map.fitBounds(bounds.pad(0.1));
-                // обновляем статистику
+                // Вычисляем общую длину
                 let totalKm = 0;
                 for(let i=0;i<fullCoords.length-1;i++) {
-                    const p1=fullCoords[i], p2=fullCoords[i+1];
-                    totalKm += distance(p1[0], p1[1], p2[0], p2[1]);
+                    totalKm += distance(fullCoords[i][0], fullCoords[i][1], fullCoords[i+1][0], fullCoords[i+1][1]);
                 }
                 document.getElementById("routeStats").innerHTML = `🛣️ Маршрут по дорогам: ${totalKm.toFixed(2)} км, ${stops.length} остановок`;
+                // Подгоняем карту, только если маршрут виден целиком (можно раскомментировать, но не обязательно)
+                // map.fitBounds(currentRouteLine.getBounds().pad(0.05));
             } else {
-                document.getElementById("routeStats").innerHTML = `⚠️ Не удалось построить маршрут, показаны прямые отрезки`;
-                // fallback прямая линия через точки
+                document.getElementById("routeStats").innerHTML = `⚠️ Прокладка не удалась, показаны прямые отрезки`;
                 const fallbackCoords = [[startLat, startLon], ...waypoints.map(w=>[w.lat,w.lon])];
                 currentRouteLine = L.polyline(fallbackCoords, { color: '#ff8844', weight: 4, dashArray: '6,8' }).addTo(map);
             }
@@ -314,24 +225,25 @@
         isLoadingRoute = false;
     }
 
-    // Отрисовка остановок (маркеры и список)
-    function renderStopsListOnly() {
+    // Отрисовка остановок (маркеры + список)
+    function renderStopsUI() {
         stopMarkers.forEach(m => map.removeLayer(m));
         stopMarkers = [];
-        const stopListDiv = document.getElementById("stopList");
-        stopListDiv.innerHTML = "";
-        stops.slice().sort((a,b)=> (a.created||0)-(b.created||0)).forEach((stop, idx) => {
+        const container = document.getElementById("stopList");
+        container.innerHTML = "";
+        const sorted = [...stops].sort((a,b)=> (a.created||0)-(b.created||0));
+        sorted.forEach((stop, idx) => {
             const marker = L.marker([stop.lat, stop.lon]).addTo(map).bindPopup(`<b>${idx+1}. ${stop.name}</b><br>${stop.time||""}`);
             stopMarkers.push(marker);
             const div = document.createElement("div");
             div.className = "stop";
             div.id = "stop-"+stop.id;
             div.innerHTML = `<div style="display:flex;gap:8px;"><span class="stop-index">${idx+1}</span><span>${stop.name}</span></div><span style="opacity:0.7;">${stop.time||"—"}</span>`;
-            stopListDiv.appendChild(div);
+            container.appendChild(div);
         });
     }
 
-    // Загрузка маршрута из Firebase
+    // Загрузить маршрут из Firebase
     function loadRouteFromFirebase() {
         db.ref("route").on("value", snap => {
             const data = snap.val();
@@ -348,51 +260,47 @@
                     });
                 });
             }
-            renderStopsListOnly();
-            // если есть текущая позиция (в send-режиме) или в view — перестроим маршрут
-            if(window.currentDriverPos) {
-                updateRoadRoute(window.currentDriverPos.lat, window.currentDriverPos.lon);
-            } else if (stops.length) {
-                // если позиции нет, просто покажем полилинию между остановками (без старта)
+            renderStopsUI();
+            // Если есть текущая позиция транспорта — перестроить маршрут
+            if(currentVehiclePos) {
+                updateRoadRoute(currentVehiclePos.lat, currentVehiclePos.lon, true);
+            } else {
+                // Если позиции нет, покажем только точки
                 if(currentRouteLine) map.removeLayer(currentRouteLine);
-                const coords = stops.sort((a,b)=> (a.created||0)-(b.created||0)).map(s=>[s.lat,s.lon]);
-                if(coords.length>1) currentRouteLine = L.polyline(coords, { color: '#aaa', weight: 4, dashArray: '5,5' }).addTo(map);
-                document.getElementById("routeStats").innerHTML = `🚏 ${stops.length} остановок (маршрут без привязки к транспорту)`;
+                if(stops.length>1) {
+                    const coords = [...stops].sort((a,b)=> (a.created||0)-(b.created||0)).map(s=>[s.lat,s.lon]);
+                    currentRouteLine = L.polyline(coords, { color: '#aaa', weight: 4, dashArray: '5,5' }).addTo(map);
+                    document.getElementById("routeStats").innerHTML = `🚏 ${stops.length} остановок (маршрут без привязки к ТС)`;
+                } else if(stops.length===1) document.getElementById("routeStats").innerHTML = `📍 1 остановка, добавьте ещё`;
+                else document.getElementById("routeStats").innerHTML = `🚏 Нет остановок`;
             }
         });
     }
 
-    // ======================== РЕЖИМ ОТПРАВКИ (водитель) ========================
+    // ==================== РЕЖИМ ОТПРАВКИ (SEND) ====================
     let watchId = null;
-    let currentDriverPos = null;
-
     function initSendMode() {
         document.getElementById("status").innerText = "📡 Водитель: отправка GPS";
         document.getElementById("modeBadge").innerText = "🚐 SEND MODE";
         document.getElementById("editor").style.display = "block";
-        document.getElementById("addStopBtn").onclick = addStopFromForm;
-        document.getElementById("clearRouteBtn").onclick = clearFullRoute;
-        document.getElementById("useMyLocationBtn").onclick = fillCurrentLocation;
+        document.getElementById("addStopBtn").onclick = () => addStopFromForm();
+        document.getElementById("clearRouteBtn").onclick = () => clearFullRoute();
+        document.getElementById("useMyLocationBtn").onclick = () => fillCurrentLocation();
 
-        // Отслеживание с высокой точностью и перестроение маршрута при каждом изменении
         if(navigator.geolocation) {
             watchId = navigator.geolocation.watchPosition(
                 pos => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     const speed = (pos.coords.speed || 0)*3.6;
-                    currentDriverPos = { lat, lon };
-                    // отправляем в Firebase
+                    currentVehiclePos = { lat, lon };
                     db.ref("live").set({ lat, lon, speed, time: Date.now() });
                     document.getElementById("speed").innerText = Math.round(speed);
                     document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString();
                     vehicleMarker.setLatLng([lat, lon]);
-                    map.panTo([lat, lon], { animate: true, duration: 0.5 });
+                    map.panTo([lat, lon], { animate: true, duration: 0.4 });
                     updateNearestStop(lat, lon);
-                    // ПЕРЕСТРАИВАЕМ МАРШРУТ ПО ДОРОГАМ ОТ ТЕКУЩЕЙ ПОЗИЦИИ
-                    if(stops.length && !isLoadingRoute) {
-                        updateRoadRoute(lat, lon);
-                    }
+                    if(stops.length && !isLoadingRoute) updateRoadRoute(lat, lon);
                 },
                 err => { document.getElementById("status").innerHTML = "⚠️ Ошибка GPS"; },
                 { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
@@ -400,29 +308,29 @@
         }
     }
 
-    // ======================== РЕЖИМ ПРОСМОТРА (планшет) ========================
+    // ==================== РЕЖИМ ПРОСМОТРА (VIEW) ====================
     function initViewMode() {
-        document.getElementById("status").innerText = "📱 Планшет: приём GPS";
+        document.getElementById("status").innerText = "📱 Планшет: получение GPS";
         document.getElementById("modeBadge").innerText = "👁️ VIEW MODE";
         document.getElementById("editor").style.display = "none";
+        // Слушаем изменения позиции ТС
         db.ref("live").on("value", snap => {
             const data = snap.val();
             if(!data) return;
+            currentVehiclePos = { lat: data.lat, lon: data.lon };
             vehicleMarker.setLatLng([data.lat, data.lon]);
-            map.panTo([data.lat, data.lon], { animate: true, duration: 0.8 });
+            map.panTo([data.lat, data.lon], { animate: true, duration: 0.6 });
             document.getElementById("speed").innerText = Math.round(data.speed || 0);
             document.getElementById("lastUpdate").innerText = new Date(data.time).toLocaleTimeString();
             updateNearestStop(data.lat, data.lon);
-            // В режиме просмотра не перестраиваем маршрут от каждого чиха, но показываем статичный маршрут между остановками (без привязки к позиции)
-            if(stops.length && !currentRouteLine) {
-                const coords = stops.sort((a,b)=> (a.created||0)-(b.created||0)).map(s=>[s.lat,s.lon]);
-                if(coords.length>1) currentRouteLine = L.polyline(coords, { color: '#ffaa44', weight: 5 }).addTo(map);
-                document.getElementById("routeStats").innerHTML = `📌 Маршрут между остановками (${stops.length} точек)`;
+            // ВАЖНО: перестраиваем маршрут по дорогам от текущей позиции транспорта
+            if(stops.length && !isLoadingRoute) {
+                updateRoadRoute(data.lat, data.lon);
             }
         });
     }
 
-    // ======================== ДОБАВЛЕНИЕ/УДАЛЕНИЕ ОСТАНОВОК ========================
+    // ==================== ДОБАВЛЕНИЕ/УДАЛЕНИЕ ====================
     function addStopFromForm() {
         const name = document.getElementById("stopName").value.trim();
         const time = document.getElementById("stopTime").value.trim();
@@ -462,7 +370,7 @@
         );
     }
 
-    // ======================== СТАРТ В ЗАВИСИМОСТИ ОТ РЕЖИМА ========================
+    // ==================== ЗАПУСК ====================
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get("mode");
     loadRouteFromFirebase();
