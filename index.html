@@ -3,14 +3,15 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Live Transit Tracker — Маршрут через все точки</title>
+    <title>Live Transit — Маршрут по дорогам от текущей позиции</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <!-- полифилл для декодирования polyline (необязателен, но удобен) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.1.1/src/polyline.js"></script>
     <style>
         * { box-sizing: border-box; }
-
         html, body {
             margin: 0;
             height: 100%;
@@ -19,8 +20,6 @@
             background: #111;
         }
         #map { width: 100%; height: 100%; }
-
-        /* Адаптивная панель — отлично смотрится на телефонах */
         .panel {
             position: absolute;
             z-index: 1000;
@@ -38,20 +37,12 @@
             transition: all 0.2s ease;
         }
         @media (max-width: 560px) {
-            .panel {
-                left: 10px;
-                right: 10px;
-                top: 10px;
-                padding: 14px 16px;
-                border-radius: 24px;
-                max-width: none;
-            }
+            .panel { left: 10px; right: 10px; top: 10px; padding: 14px 16px; border-radius: 24px; max-width: none; }
             .title { font-size: 20px; }
             .big { font-size: 24px; }
             .stop-list { max-height: 180px; }
             button, input { padding: 12px; font-size: 16px; }
         }
-
         .title {
             font-size: 22px;
             font-weight: 700;
@@ -88,20 +79,18 @@
             margin-top: 18px;
             max-height: 200px;
             overflow-y: auto;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            border-top: 1px solid rgba(255,255,255,0.2);
             padding-top: 12px;
             font-size: 14px;
-            scrollbar-width: thin;
         }
         .stop {
             margin-top: 8px;
             padding: 6px 8px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255,255,255,0.05);
             border-radius: 16px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            word-break: break-word;
         }
         .stop-index {
             font-weight: bold;
@@ -112,57 +101,52 @@
             margin-right: 8px;
         }
         .next-stop {
-            background: rgba(77, 163, 255, 0.3);
+            background: rgba(77,163,255,0.3);
             border-left: 4px solid #4da3ff;
             font-weight: 600;
-            color: #c7e2ff;
         }
         input, button { border: none; border-radius: 40px; font-weight: 500; outline: none; }
         input {
             width: 100%;
             margin-top: 10px;
             padding: 12px 16px;
-            background: rgba(30, 30, 38, 0.9);
+            background: rgba(30,30,38,0.9);
             color: white;
             font-size: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: 0.2s;
+            border: 1px solid rgba(255,255,255,0.2);
         }
         input:focus { border-color: #4da3ff; background: #1e1e2a; }
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 12px;
-            flex-wrap: wrap;
-        }
+        .button-group { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
         button {
             background: #2c3e66;
             color: white;
             padding: 12px 16px;
             font-size: 14px;
             cursor: pointer;
-            transition: 0.2s;
             flex: 1;
             font-weight: 600;
+            transition: 0.2s;
         }
         button.primary { background: #4da3ff; box-shadow: 0 2px 6px rgba(77,163,255,0.3); }
         button.danger { background: #6b2e2e; }
         button:hover { opacity: 0.9; transform: scale(0.98); }
-        .coord-row {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
+        .coord-row { display: flex; gap: 8px; margin-top: 8px; }
         .coord-row input { flex: 1; margin-top: 0; }
         hr { margin: 16px 0 12px; border: none; border-top: 1px solid rgba(255,255,255,0.15); }
         .label-icon { font-weight: 500; font-size: 13px; opacity: 0.8; margin-top: 8px; margin-bottom: 4px; }
         .route-stats {
-            background: rgba(0,0,0,0.4);
+            background: rgba(0,0,0,0.5);
             border-radius: 20px;
             padding: 6px 12px;
             margin-top: 10px;
-            font-size: 13px;
+            font-size: 12px;
             text-align: center;
+        }
+        .loading {
+            font-size: 12px;
+            color: #ffaa66;
+            text-align: center;
+            padding: 4px;
         }
         .leaflet-control-attribution { display: none; }
     </style>
@@ -172,71 +156,43 @@
 
 <div class="panel" id="mainPanel">
     <div class="title">
-        <span>🚆 LIVE TRANSIT</span>
+        <span>🚆 LIVE ROUTE</span>
         <span id="modeBadge" style="font-size: 12px; background: #2c3e66; padding: 4px 10px; border-radius: 40px;"></span>
     </div>
-
-    <div class="line">
-        <span><span class="status-dot"></span> <span id="status">Подключение...</span></span>
-    </div>
-
-    <div class="line">
-        <span>Скорость:</span>
-        <span class="big" id="speed">0</span>
-        <span>км/ч</span>
-    </div>
-
-    <div class="line">
-        <span>Следующая остановка:</span>
-        <span id="nextStop" style="font-weight:500;">—</span>
-    </div>
-
-    <div class="line">
-        <span>ETA:</span>
-        <span id="eta">—</span>
-    </div>
-
-    <div class="line">
-        <span>Обновление:</span>
-        <span id="lastUpdate">—</span>
-    </div>
-
-    <!-- Блок с информацией о маршруте (общая длина, кол-во остановок) -->
-    <div id="routeStats" class="route-stats">📏 Маршрут: не построен</div>
-
+    <div class="line"><span><span class="status-dot"></span> <span id="status">Подключение...</span></span></div>
+    <div class="line"><span>Скорость:</span><span class="big" id="speed">0</span><span>км/ч</span></div>
+    <div class="line"><span>Следующая остановка:</span><span id="nextStop" style="font-weight:500;">—</span></div>
+    <div class="line"><span>ETA:</span><span id="eta">—</span></div>
+    <div class="line"><span>Обновление:</span><span id="lastUpdate">—</span></div>
+    <div id="routeStats" class="route-stats">🔄 Построение маршрута по дорогам...</div>
+    <div id="loadingHint" class="loading"></div>
     <div class="stop-list" id="stopList"></div>
 
-    <!-- Редактор для Send Mode (добавление остановок с координатами) -->
+    <!-- Блок редактора для send-режима -->
     <div id="editor" style="display:none">
         <hr>
         <div class="label-icon">🏷️ Название остановки</div>
         <input type="text" id="stopName" placeholder="Например: Центральный вокзал" autocomplete="off">
-
         <div class="label-icon">⏱️ Время прибытия (ETA)</div>
-        <input type="text" id="stopTime" placeholder="14:25 или '5 мин'" autocomplete="off">
-
+        <input type="text" id="stopTime" placeholder="14:25 или '5 мин'">
         <div class="label-icon">🌐 Координаты (широта / долгота)</div>
         <div class="coord-row">
-            <input type="number" id="stopLat" step="any" placeholder="Широта" value="">
-            <input type="number" id="stopLon" step="any" placeholder="Долгота" value="">
+            <input type="number" id="stopLat" step="any" placeholder="Широта">
+            <input type="number" id="stopLon" step="any" placeholder="Долгота">
         </div>
-
         <div class="button-group">
             <button id="useMyLocationBtn" class="primary" type="button">📍 Моё местоположение</button>
         </div>
-
         <div class="button-group">
             <button id="addStopBtn" class="primary" type="button">➕ Добавить остановку</button>
             <button id="clearRouteBtn" class="danger" type="button">🗑️ Очистить маршрут</button>
         </div>
-        <div style="font-size: 12px; margin-top: 8px; opacity:0.7; text-align:center;">
-            💡 Нажмите «Моё местоположение» → координаты заполнятся → добавьте остановку. Маршрут строится автоматически через все точки по порядку.
-        </div>
+        <div style="font-size: 11px; margin-top: 8px; opacity:0.6; text-align:center;">Маршрут перестроится от вашей позиции по дорогам</div>
     </div>
 </div>
 
 <script>
-    // --------------------------- FIREBASE ---------------------------
+    // ======================== FIREBASE ========================
     const firebaseConfig = {
         apiKey: "AIzaSyAhBIzshLpZFRCt8ndMwWgSApkoL61lYW0",
         authDomain: "geoformytrip.firebaseapp.com",
@@ -244,163 +200,145 @@
         projectId: "geoformytrip",
         storageBucket: "geoformytrip.firebasestorage.app",
         messagingSenderId: "1020098843524",
-        appId: "1:1020098843524:web:48d1946193a229414b83d1",
-        measurementId: "G-ZZQMKVYY34"
+        appId: "1:1020098843524:web:48d1946193a229414b83d1"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // --------------------------- MAP ---------------------------
+    // ======================== MAP ========================
     const map = L.map('map', { zoomControl: true }).setView([50.63, 3.06], 13);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-    }).addTo(map);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    // --------------------------- ОБЩИЕ ПЕРЕМЕННЫЕ ---------------------------
-    let stops = [];            // массив {id, name, time, lat, lon, created}
+    // ======================== ОБЩИЕ ДАННЫЕ ========================
+    let stops = [];               // массив остановок {id, name, time, lat, lon, created}
     let stopMarkers = [];
-    let routeLine = null;
-    let vehicleMarker = null;
+    let currentRouteLine = null;  // полилиния маршрута по дорогам
+    let vehicleMarker = L.marker([50.63, 3.06], { icon: L.divIcon({ html: "🚆", iconSize: [36,36], className: "vehicle-marker" }) }).addTo(map);
+    let isLoadingRoute = false;
 
-    const vehicleIcon = L.divIcon({ html: "🚆", className: "vehicle-marker", iconSize: [36, 36], popupAnchor: [0, -10] });
-    vehicleMarker = L.marker([50.63, 3.06], { icon: vehicleIcon }).addTo(map);
-
-    // --------------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---------------------------
-    // Haversine формула для точного расстояния в км
-    function haversineDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371; // км
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                  Math.sin(dLon/2) * Math.sin(dLon/2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        return R * c;
-    }
-
-    // Рассчитать общую длину маршрута (последовательное соединение точек)
-    function calculateTotalRouteLength() {
-        if (stops.length < 2) return 0;
-        let total = 0;
-        for (let i = 0; i < stops.length - 1; i++) {
-            total += haversineDistance(stops[i].lat, stops[i].lon, stops[i+1].lat, stops[i+1].lon);
-        }
-        return total;
-    }
-
-    // Обновить отображение статистики маршрута (длина, кол-во остановок)
-    function updateRouteStatsUI() {
-        const totalLength = calculateTotalRouteLength();
-        const statsDiv = document.getElementById("routeStats");
-        if (stops.length === 0) {
-            statsDiv.innerHTML = "📏 Маршрут: нет остановок";
-        } else if (stops.length === 1) {
-            statsDiv.innerHTML = `📍 1 остановка. Добавьте ещё точки для построения маршрута.`;
-        } else {
-            statsDiv.innerHTML = `🚏 ${stops.length} остановок | 📏 Длина маршрута: ${totalLength.toFixed(2)} км`;
-        }
-    }
-
-    function distanceSimple(lat1, lon1, lat2, lon2) {
-        const dx = (lat1 - lat2) * 111000;
-        const dy = (lon1 - lon2) * 88000;
-        return Math.sqrt(dx*dx + dy*dy);
+    // Функция расстояния для ближайшей остановки (прямая линия)
+    function distance(lat1, lon1, lat2, lon2) {
+        const R = 6371; const dLat = (lat2-lat1)*Math.PI/180; const dLon = (lon2-lon1)*Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        return 2*R*Math.asin(Math.sqrt(a));
     }
 
     function updateNearestStop(lat, lon) {
-        if (!stops.length) {
-            document.getElementById("nextStop").innerText = "—";
-            document.getElementById("eta").innerText = "—";
-            return;
-        }
-        let nearest = null;
-        let bestDist = Infinity;
-        stops.forEach(stop => {
-            const d = distanceSimple(lat, lon, stop.lat, stop.lon);
-            if (d < bestDist) {
-                bestDist = d;
-                nearest = stop;
-            }
-        });
-        if (nearest) {
-            document.getElementById("nextStop").innerText = nearest.name;
-            document.getElementById("eta").innerText = nearest.time || "—";
+        if (!stops.length) { document.getElementById("nextStop").innerText = "—"; document.getElementById("eta").innerText = "—"; return; }
+        let best = null, bestDist = Infinity;
+        stops.forEach(s => { let d = distance(lat, lon, s.lat, s.lon); if (d < bestDist) { bestDist = d; best = s; } });
+        if (best) {
+            document.getElementById("nextStop").innerText = best.name;
+            document.getElementById("eta").innerText = best.time || "—";
             document.querySelectorAll(".stop").forEach(el => el.classList.remove("next-stop"));
-            const activeElem = document.getElementById("stop-" + nearest.id);
-            if (activeElem) activeElem.classList.add("next-stop");
-        } else {
-            document.getElementById("nextStop").innerText = "—";
-            document.getElementById("eta").innerText = "—";
-        }
+            let active = document.getElementById("stop-"+best.id);
+            if(active) active.classList.add("next-stop");
+        } else { document.getElementById("nextStop").innerText = "—"; document.getElementById("eta").innerText = "—"; }
     }
 
-    // Полная отрисовка маршрута: маркеры остановок, полилиния, список с индексами
-    function renderRouteAndStops() {
-        // удаляем старые слои
-        stopMarkers.forEach(m => map.removeLayer(m));
-        stopMarkers = [];
-        if (routeLine) map.removeLayer(routeLine);
-        routeLine = null;
+    // ==== ПОСТРОЕНИЕ МАРШРУТА ПО ДОРОГАМ С OSRM ====
+    async function fetchRouteFromOSRM(startLat, startLon, endLat, endLon) {
+        const url = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=polyline`;
+        try {
+            const resp = await fetch(url);
+            const json = await resp.json();
+            if(json.code === "Ok" && json.routes.length) {
+                const polylineStr = json.routes[0].geometry;
+                const coords = polyline.decode(polylineStr); // возвращает [[lat,lng]]
+                return coords;
+            }
+            return null;
+        } catch(e) { console.warn(e); return null; }
+    }
 
-        const stopListDiv = document.getElementById("stopList");
-        stopListDiv.innerHTML = "";
-        if (!stops.length) {
-            updateRouteStatsUI();
+    // Построение полного маршрута от start до всех остановок последовательно
+    async function buildRoadRouteFromStart(startLat, startLon, waypoints) {
+        // waypoints: массив остановок [{lat,lon}, ...] в порядке следования
+        if(!waypoints.length) return [];
+        let fullCoords = [];
+        let prevLat = startLat, prevLon = startLon;
+        for(let i=0; i<waypoints.length; i++) {
+            const wp = waypoints[i];
+            const segment = await fetchRouteFromOSRM(prevLat, prevLon, wp.lat, wp.lon);
+            if(segment && segment.length) {
+                if(fullCoords.length === 0) fullCoords.push(...segment);
+                else fullCoords.push(...segment.slice(1)); // избегаем дубля точки стыка
+            } else {
+                // fallback прямая линия
+                const fallback = [[prevLat, prevLon], [wp.lat, wp.lon]];
+                if(fullCoords.length===0) fullCoords.push(...fallback);
+                else fullCoords.push(...fallback.slice(1));
+            }
+            prevLat = wp.lat; prevLon = wp.lon;
+        }
+        return fullCoords;
+    }
+
+    // Отрисовка маршрута на карте
+    async function updateRoadRoute(startLat, startLon) {
+        if(!stops.length) {
+            if(currentRouteLine) map.removeLayer(currentRouteLine);
+            currentRouteLine = null;
+            document.getElementById("routeStats").innerHTML = "🚏 Нет остановок. Добавьте точки маршрута.";
             return;
         }
+        // Сортируем остановки по created (порядок добавления)
+        const sortedStops = [...stops].sort((a,b)=> (a.created||0) - (b.created||0));
+        const waypoints = sortedStops.map(s => ({ lat: s.lat, lon: s.lon }));
+        const loadingDiv = document.getElementById("loadingHint");
+        loadingDiv.innerText = "🔄 Прокладываем маршрут по дорогам...";
+        isLoadingRoute = true;
+        try {
+            const fullCoords = await buildRoadRouteFromStart(startLat, startLon, waypoints);
+            if(currentRouteLine) map.removeLayer(currentRouteLine);
+            if(fullCoords.length > 1) {
+                currentRouteLine = L.polyline(fullCoords, { color: '#4da3ff', weight: 6, opacity: 0.9, lineJoin: 'round' }).addTo(map);
+                // подгоняем карту под маршрут (только если нужно)
+                const bounds = L.latLngBounds(fullCoords);
+                map.fitBounds(bounds.pad(0.1));
+                // обновляем статистику
+                let totalKm = 0;
+                for(let i=0;i<fullCoords.length-1;i++) {
+                    const p1=fullCoords[i], p2=fullCoords[i+1];
+                    totalKm += distance(p1[0], p1[1], p2[0], p2[1]);
+                }
+                document.getElementById("routeStats").innerHTML = `🛣️ Маршрут по дорогам: ${totalKm.toFixed(2)} км, ${stops.length} остановок`;
+            } else {
+                document.getElementById("routeStats").innerHTML = `⚠️ Не удалось построить маршрут, показаны прямые отрезки`;
+                // fallback прямая линия через точки
+                const fallbackCoords = [[startLat, startLon], ...waypoints.map(w=>[w.lat,w.lon])];
+                currentRouteLine = L.polyline(fallbackCoords, { color: '#ff8844', weight: 4, dashArray: '6,8' }).addTo(map);
+            }
+        } catch(e) { console.error(e); loadingDiv.innerText = "Ошибка маршрутизации"; }
+        loadingDiv.innerText = "";
+        isLoadingRoute = false;
+    }
 
-        const coords = [];
-        stops.forEach((stop, idx) => {
-            coords.push([stop.lat, stop.lon]);
-            // маркер на карте
-            const marker = L.marker([stop.lat, stop.lon], { title: `${idx+1}. ${stop.name}` })
-                .addTo(map)
-                .bindPopup(`<b>${idx+1}. ${stop.name}</b><br>${stop.time ? "🕒 "+stop.time : ""}`);
+    // Отрисовка остановок (маркеры и список)
+    function renderStopsListOnly() {
+        stopMarkers.forEach(m => map.removeLayer(m));
+        stopMarkers = [];
+        const stopListDiv = document.getElementById("stopList");
+        stopListDiv.innerHTML = "";
+        stops.slice().sort((a,b)=> (a.created||0)-(b.created||0)).forEach((stop, idx) => {
+            const marker = L.marker([stop.lat, stop.lon]).addTo(map).bindPopup(`<b>${idx+1}. ${stop.name}</b><br>${stop.time||""}`);
             stopMarkers.push(marker);
-
-            // элемент списка остановок с порядковым номером
             const div = document.createElement("div");
             div.className = "stop";
-            div.id = "stop-" + stop.id;
-            div.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span class="stop-index">${idx+1}</span>
-                    <span>${stop.name}</span>
-                </div>
-                <span style="opacity:0.7;">${stop.time || "—"}</span>
-            `;
+            div.id = "stop-"+stop.id;
+            div.innerHTML = `<div style="display:flex;gap:8px;"><span class="stop-index">${idx+1}</span><span>${stop.name}</span></div><span style="opacity:0.7;">${stop.time||"—"}</span>`;
             stopListDiv.appendChild(div);
         });
-
-        // Построение маршрута — ЛИНИЯ, соединяющая ВСЕ точки последовательно
-        if (coords.length >= 2) {
-            routeLine = L.polyline(coords, {
-                color: '#ffaa44',
-                weight: 5,
-                smoothFactor: 1.2,
-                opacity: 0.9,
-                dashArray: '8, 6',   // прерывистая линия для эстетики
-                lineJoin: 'round'
-            }).addTo(map);
-            // Автоматически подогнать карту под весь маршрут
-            map.fitBounds(routeLine.getBounds().pad(0.12));
-        } else if (coords.length === 1) {
-            map.setView([coords[0][0], coords[0][1]], 14);
-        }
-
-        updateRouteStatsUI(); // обновляем длину и количество остановок
     }
 
     // Загрузка маршрута из Firebase
-    function loadRoute() {
+    function loadRouteFromFirebase() {
         db.ref("route").on("value", snap => {
             const data = snap.val();
             stops = [];
-            if (data) {
-                const tempStops = [];
+            if(data) {
                 Object.entries(data).forEach(([id, stopData]) => {
-                    tempStops.push({
+                    stops.push({
                         id: id,
                         name: stopData.name || "Без названия",
                         time: stopData.time || "",
@@ -409,138 +347,127 @@
                         created: stopData.created || 0
                     });
                 });
-                // сортировка по времени создания -> порядок маршрута
-                tempStops.sort((a, b) => (a.created || 0) - (b.created || 0));
-                stops = tempStops;
             }
-            renderRouteAndStops();
-            const currentLive = window._currentLiveData;
-            if (currentLive) updateNearestStop(currentLive.lat, currentLive.lon);
+            renderStopsListOnly();
+            // если есть текущая позиция (в send-режиме) или в view — перестроим маршрут
+            if(window.currentDriverPos) {
+                updateRoadRoute(window.currentDriverPos.lat, window.currentDriverPos.lon);
+            } else if (stops.length) {
+                // если позиции нет, просто покажем полилинию между остановками (без старта)
+                if(currentRouteLine) map.removeLayer(currentRouteLine);
+                const coords = stops.sort((a,b)=> (a.created||0)-(b.created||0)).map(s=>[s.lat,s.lon]);
+                if(coords.length>1) currentRouteLine = L.polyline(coords, { color: '#aaa', weight: 4, dashArray: '5,5' }).addTo(map);
+                document.getElementById("routeStats").innerHTML = `🚏 ${stops.length} остановок (маршрут без привязки к транспорту)`;
+            }
         });
     }
 
-    // Добавление остановки в Send-режиме
+    // ======================== РЕЖИМ ОТПРАВКИ (водитель) ========================
+    let watchId = null;
+    let currentDriverPos = null;
+
+    function initSendMode() {
+        document.getElementById("status").innerText = "📡 Водитель: отправка GPS";
+        document.getElementById("modeBadge").innerText = "🚐 SEND MODE";
+        document.getElementById("editor").style.display = "block";
+        document.getElementById("addStopBtn").onclick = addStopFromForm;
+        document.getElementById("clearRouteBtn").onclick = clearFullRoute;
+        document.getElementById("useMyLocationBtn").onclick = fillCurrentLocation;
+
+        // Отслеживание с высокой точностью и перестроение маршрута при каждом изменении
+        if(navigator.geolocation) {
+            watchId = navigator.geolocation.watchPosition(
+                pos => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    const speed = (pos.coords.speed || 0)*3.6;
+                    currentDriverPos = { lat, lon };
+                    // отправляем в Firebase
+                    db.ref("live").set({ lat, lon, speed, time: Date.now() });
+                    document.getElementById("speed").innerText = Math.round(speed);
+                    document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString();
+                    vehicleMarker.setLatLng([lat, lon]);
+                    map.panTo([lat, lon], { animate: true, duration: 0.5 });
+                    updateNearestStop(lat, lon);
+                    // ПЕРЕСТРАИВАЕМ МАРШРУТ ПО ДОРОГАМ ОТ ТЕКУЩЕЙ ПОЗИЦИИ
+                    if(stops.length && !isLoadingRoute) {
+                        updateRoadRoute(lat, lon);
+                    }
+                },
+                err => { document.getElementById("status").innerHTML = "⚠️ Ошибка GPS"; },
+                { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
+            );
+        }
+    }
+
+    // ======================== РЕЖИМ ПРОСМОТРА (планшет) ========================
+    function initViewMode() {
+        document.getElementById("status").innerText = "📱 Планшет: приём GPS";
+        document.getElementById("modeBadge").innerText = "👁️ VIEW MODE";
+        document.getElementById("editor").style.display = "none";
+        db.ref("live").on("value", snap => {
+            const data = snap.val();
+            if(!data) return;
+            vehicleMarker.setLatLng([data.lat, data.lon]);
+            map.panTo([data.lat, data.lon], { animate: true, duration: 0.8 });
+            document.getElementById("speed").innerText = Math.round(data.speed || 0);
+            document.getElementById("lastUpdate").innerText = new Date(data.time).toLocaleTimeString();
+            updateNearestStop(data.lat, data.lon);
+            // В режиме просмотра не перестраиваем маршрут от каждого чиха, но показываем статичный маршрут между остановками (без привязки к позиции)
+            if(stops.length && !currentRouteLine) {
+                const coords = stops.sort((a,b)=> (a.created||0)-(b.created||0)).map(s=>[s.lat,s.lon]);
+                if(coords.length>1) currentRouteLine = L.polyline(coords, { color: '#ffaa44', weight: 5 }).addTo(map);
+                document.getElementById("routeStats").innerHTML = `📌 Маршрут между остановками (${stops.length} точек)`;
+            }
+        });
+    }
+
+    // ======================== ДОБАВЛЕНИЕ/УДАЛЕНИЕ ОСТАНОВОК ========================
     function addStopFromForm() {
         const name = document.getElementById("stopName").value.trim();
         const time = document.getElementById("stopTime").value.trim();
         let lat = parseFloat(document.getElementById("stopLat").value);
         let lon = parseFloat(document.getElementById("stopLon").value);
-
-        if (!name) { alert("Введите название остановки"); return; }
-        if (isNaN(lat) || isNaN(lon)) { alert("Введите координаты или нажмите 'Моё местоположение'"); return; }
-        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) { alert("Координаты вне допустимого диапазона"); return; }
-
-        const newStop = {
-            name: name,
-            time: time || "",
-            lat: lat,
-            lon: lon,
-            created: Date.now()
-        };
-        db.ref("route").push(newStop).then(() => {
-            // Очистка полей
+        if(!name) { alert("Введите название"); return; }
+        if(isNaN(lat) || isNaN(lon)) { alert("Укажите координаты или нажмите 'Моё местоположение'"); return; }
+        db.ref("route").push({
+            name, time: time || "", lat, lon, created: Date.now()
+        }).then(() => {
             document.getElementById("stopName").value = "";
             document.getElementById("stopTime").value = "";
             document.getElementById("stopLat").value = "";
             document.getElementById("stopLon").value = "";
             const btn = document.getElementById("addStopBtn");
-            const original = btn.innerText;
-            btn.innerText = "✅ Добавлено!";
-            setTimeout(() => { btn.innerText = original; }, 1000);
-        }).catch(err => alert("Ошибка: " + err.message));
+            const orig = btn.innerText;
+            btn.innerText = "✅ Добавлено";
+            setTimeout(()=> btn.innerText = orig, 1000);
+        }).catch(e => alert("Ошибка: "+e.message));
     }
 
     function clearFullRoute() {
-        if (confirm("⚠️ Удалить все остановки маршрута?")) {
-            db.ref("route").remove().then(() => alert("Маршрут очищен"));
-        }
+        if(confirm("Удалить все остановки?")) db.ref("route").remove();
     }
 
     function fillCurrentLocation() {
-        if (!navigator.geolocation) { alert("Геолокация не поддерживается"); return; }
+        if(!navigator.geolocation) return alert("Нет геолокации");
         navigator.geolocation.getCurrentPosition(
             pos => {
                 document.getElementById("stopLat").value = pos.coords.latitude.toFixed(6);
                 document.getElementById("stopLon").value = pos.coords.longitude.toFixed(6);
                 const btn = document.getElementById("useMyLocationBtn");
-                const orig = btn.innerText;
                 btn.innerText = "📍 Готово";
-                setTimeout(() => { btn.innerText = orig; }, 1200);
+                setTimeout(()=> btn.innerText = "📍 Моё местоположение", 1500);
             },
-            err => { alert("Ошибка геолокации: " + err.message); },
-            { enableHighAccuracy: true, timeout: 8000 }
+            err => alert("Ошибка доступа к геопозиции")
         );
     }
 
-    // --------------------------- РЕЖИМ ОТПРАВКИ (SEND) ---------------------------
-    function initSendMode() {
-        document.getElementById("status").innerText = "📡 Телефон отправляет GPS";
-        document.getElementById("modeBadge").innerText = "📤 SEND MODE";
-        document.getElementById("editor").style.display = "block";
-
-        document.getElementById("addStopBtn").onclick = addStopFromForm;
-        document.getElementById("clearRouteBtn").onclick = clearFullRoute;
-        document.getElementById("useMyLocationBtn").onclick = fillCurrentLocation;
-
-        // Отправка геолокации каждые 2 секунды
-        setInterval(() => {
-            if (!navigator.geolocation) return;
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    const lat = pos.coords.latitude;
-                    const lon = pos.coords.longitude;
-                    const speed = (pos.coords.speed || 0) * 3.6;
-                    db.ref("live").set({ lat, lon, speed, time: Date.now() }).catch(console.warn);
-                    document.getElementById("speed").innerText = Math.round(speed);
-                    document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString();
-                    if (vehicleMarker) vehicleMarker.setLatLng([lat, lon]);
-                    updateNearestStop(lat, lon);
-                    // смещаем центр карты за телефоном
-                    map.panTo([lat, lon], { animate: true, duration: 0.5 });
-                },
-                err => { document.getElementById("status").innerHTML = "⚠️ Ошибка GPS"; },
-                { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
-            );
-        }, 2000);
-    }
-
-    // --------------------------- РЕЖИМ ПРОСМОТРА (VIEW) ---------------------------
-    function initViewMode() {
-        document.getElementById("status").innerText = "📱 Планшет получает GPS";
-        document.getElementById("modeBadge").innerText = "👁️ VIEW MODE";
-        document.getElementById("editor").style.display = "none";
-        db.ref("live").on("value", snap => {
-            const data = snap.val();
-            if (!data) return;
-            window._currentLiveData = data;
-            if (vehicleMarker) vehicleMarker.setLatLng([data.lat, data.lon]);
-            map.panTo([data.lat, data.lon], { animate: true, duration: 0.8 });
-            document.getElementById("speed").innerText = Math.round(data.speed || 0);
-            document.getElementById("lastUpdate").innerText = new Date(data.time).toLocaleTimeString();
-            if (stops.length) updateNearestStop(data.lat, data.lon);
-        });
-    }
-
-    // --------------------------- ЗАПУСК В ЗАВИСИМОСТИ ОТ РЕЖИМА ---------------------------
+    // ======================== СТАРТ В ЗАВИСИМОСТИ ОТ РЕЖИМА ========================
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get("mode");
-
-    loadRoute();
-    if (mode === "send") {
-        initSendMode();
-        map.zoomControl.setPosition('bottomright');
-    } else {
-        initViewMode();
-        map.zoomControl.setPosition('bottomright');
-    }
-
-    // Небольшая адаптация: если маршрут загружен и нет транспорта, показываем маршрут
-    setTimeout(() => {
-        if (stops.length > 1 && mode !== "send") {
-            const bounds = L.latLngBounds(stops.map(s => [s.lat, s.lon]));
-            map.fitBounds(bounds.pad(0.1));
-        }
-    }, 500);
+    loadRouteFromFirebase();
+    if(mode === "send") initSendMode();
+    else initViewMode();
 </script>
 </body>
 </html>
