@@ -1,11 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Live Tracker</title>
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>Live Transit Tracker</title>
 
 <link rel="stylesheet"
- href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
@@ -13,37 +16,134 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 
 <style>
-html, body, #map {
-  height: 100%;
-  margin: 0;
+
+html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    background: #111;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
 }
 
 .panel {
-  position: absolute;
-  z-index: 1000;
-  top: 10px;
-  left: 10px;
-  background: white;
-  padding: 10px;
-  border-radius: 10px;
-  font-family: sans-serif;
+    position: absolute;
+    z-index: 1000;
+    top: 15px;
+    left: 15px;
+
+    background: rgba(20,20,20,0.92);
+
+    color: white;
+
+    padding: 16px;
+
+    border-radius: 16px;
+
+    min-width: 260px;
+
+    backdrop-filter: blur(10px);
+
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
 }
+
+.title {
+    font-size: 22px;
+    font-weight: bold;
+    margin-bottom: 12px;
+}
+
+.line {
+    margin-top: 8px;
+    font-size: 16px;
+}
+
+.big {
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    background: lime;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.stop-list {
+    margin-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    padding-top: 10px;
+}
+
+.stop {
+    margin-top: 5px;
+    opacity: 0.7;
+}
+
+.next-stop {
+    opacity: 1;
+    font-weight: bold;
+    color: #4da3ff;
+}
+
+.leaflet-control-attribution {
+    display: none;
+}
+
 </style>
 </head>
 
 <body>
 
 <div class="panel">
-  <div>LIVE TRACKER</div>
-  <div id="status">Подключение...</div>
+
+    <div class="title">
+        🚆 LIVE TRANSIT
+    </div>
+
+    <div class="line">
+        <span class="status-dot"></span>
+        <span id="status">Подключение...</span>
+    </div>
+
+    <div class="line">
+        Скорость:
+        <span class="big" id="speed">0</span>
+        км/ч
+    </div>
+
+    <div class="line">
+        Следующая остановка:
+        <span id="nextStop">—</span>
+    </div>
+
+    <div class="line">
+        ETA:
+        <span id="eta">—</span>
+    </div>
+
+    <div class="line">
+        Последнее обновление:
+        <span id="lastUpdate">—</span>
+    </div>
+
+    <div class="stop-list" id="stopList"></div>
+
 </div>
 
 <div id="map"></div>
 
 <script>
 
+// ================= FIREBASE =================
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAhBIzshLpZFRCt8ndMwWgSApkoL61lYW0",
   authDomain: "geoformytrip.firebaseapp.com",
@@ -55,68 +155,235 @@ const firebaseConfig = {
   measurementId: "G-ZZQMKVYY34"
 };
 
-
-
 firebase.initializeApp(firebaseConfig);
 
 const db = firebase.database();
 
-const map = L.map('map').setView([50.63, 3.06], 13);
+// ================= MAP =================
+
+const map = L.map('map', {
+    zoomControl: false
+}).setView([50.63, 3.06], 13);
 
 L.tileLayer(
- 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
- {
-   maxZoom: 19
- }).addTo(map);
+'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+{
+    maxZoom: 19
+}).addTo(map);
 
-const marker = L.marker([50.63, 3.06]).addTo(map);
+// ================= ROUTE =================
 
-const route = [
- [50.63, 3.06],
- [50.64, 3.08],
- [50.65, 3.10]
+const stops = [
+{
+    name: "Lille Flandres",
+    time: "14:00",
+    lat: 50.6369,
+    lon: 3.0700
+},
+{
+    name: "Ronchin",
+    time: "14:08",
+    lat: 50.6030,
+    lon: 3.0900
+},
+{
+    name: "Lesquin",
+    time: "14:15",
+    lat: 50.5900,
+    lon: 3.1100
+},
+{
+    name: "Templeuve",
+    time: "14:25",
+    lat: 50.5230,
+    lon: 3.1700
+}
 ];
 
-L.polyline(route, {
- color: 'blue'
+const routeCoords = stops.map(s => [s.lat, s.lon]);
+
+const routeLine = L.polyline(routeCoords, {
+    color: '#4da3ff',
+    weight: 6
 }).addTo(map);
+
+map.fitBounds(routeLine.getBounds());
+
+// ================= STOPS =================
+
+const stopList = document.getElementById("stopList");
+
+stops.forEach(stop => {
+
+    const div = document.createElement("div");
+
+    div.className = "stop";
+
+    div.id = "stop-" + stop.name;
+
+    div.innerHTML =
+    `${stop.time} — ${stop.name}`;
+
+    stopList.appendChild(div);
+
+});
+
+// ================= VEHICLE =================
+
+const vehicleIcon = L.divIcon({
+    html: "🚆",
+    className: "",
+    iconSize: [32,32]
+});
+
+const marker = L.marker(
+[50.6369, 3.0700],
+{
+    icon: vehicleIcon
+}).addTo(map);
+
+// ================= HELPERS =================
+
+function distance(lat1, lon1, lat2, lon2) {
+
+    const dx = lat1 - lat2;
+    const dy = lon1 - lon2;
+
+    return Math.sqrt(dx*dx + dy*dy);
+
+}
+
+function updateNearestStop(lat, lon) {
+
+    let nearest = null;
+    let best = 999999;
+
+    stops.forEach(stop => {
+
+        const d = distance(
+            lat,
+            lon,
+            stop.lat,
+            stop.lon
+        );
+
+        if(d < best) {
+            best = d;
+            nearest = stop;
+        }
+
+    });
+
+    document.getElementById("nextStop")
+    .innerText = nearest.name;
+
+    document.getElementById("eta")
+    .innerText = nearest.time;
+
+    document.querySelectorAll(".stop")
+    .forEach(el => {
+        el.classList.remove("next-stop");
+    });
+
+    document.getElementById(
+        "stop-" + nearest.name
+    ).classList.add("next-stop");
+
+}
+
+// ================= MODE =================
 
 const params = new URLSearchParams(location.search);
 
 const mode = params.get("mode");
 
+// ================= SEND MODE =================
+
 if(mode === "send") {
 
- document.getElementById("status").innerText =
- "Телефон отправляет GPS";
+    document.getElementById("status")
+    .innerText = "Телефон отправляет GPS";
 
- navigator.geolocation.watchPosition(pos => {
+    navigator.geolocation.watchPosition(
 
-   db.ref("live").set({
-     lat: pos.coords.latitude,
-     lon: pos.coords.longitude,
-     speed: pos.coords.speed || 0,
-     time: Date.now()
-   });
+        pos => {
 
- });
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
 
-} else {
+            const speed =
+            (pos.coords.speed || 0) * 3.6;
 
- document.getElementById("status").innerText =
- "Планшет получает GPS";
+            db.ref("live").set({
 
- db.ref("live").on("value", snap => {
+                lat,
+                lon,
+                speed,
+                time: Date.now()
 
-   const data = snap.val();
+            });
 
-   if(!data) return;
+        },
 
-   marker.setLatLng([data.lat, data.lon]);
+        err => {
 
-   map.panTo([data.lat, data.lon]);
+            alert(
+            "GPS ошибка: " + err.message
+            );
 
- });
+        },
+
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 5000
+        }
+
+    );
+
+}
+
+// ================= VIEW MODE =================
+
+else {
+
+    document.getElementById("status")
+    .innerText = "Планшет получает GPS";
+
+    db.ref("live").on("value", snap => {
+
+        const data = snap.val();
+
+        if(!data) return;
+
+        marker.setLatLng([
+            data.lat,
+            data.lon
+        ]);
+
+        map.panTo([
+            data.lat,
+            data.lon
+        ], {
+            animate: true,
+            duration: 1
+        });
+
+        document.getElementById("speed")
+        .innerText =
+        Math.round(data.speed);
+
+        document.getElementById("lastUpdate")
+        .innerText =
+        new Date(data.time)
+        .toLocaleTimeString();
+
+        updateNearestStop(
+            data.lat,
+            data.lon
+        );
+
+    });
 
 }
 
