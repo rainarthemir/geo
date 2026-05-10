@@ -3,15 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Live Transit Tracker — Сенд-мод</title>
+    <title>Live Transit Tracker — Маршрут через все точки</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         html, body {
             margin: 0;
@@ -20,13 +18,9 @@
             font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
             background: #111;
         }
+        #map { width: 100%; height: 100%; }
 
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Адаптивная панель — для телефонов удобно */
+        /* Адаптивная панель — отлично смотрится на телефонах */
         .panel {
             position: absolute;
             z-index: 1000;
@@ -43,7 +37,6 @@
             border: 0.5px solid rgba(255, 255, 255, 0.2);
             transition: all 0.2s ease;
         }
-
         @media (max-width: 560px) {
             .panel {
                 left: 10px;
@@ -53,19 +46,10 @@
                 border-radius: 24px;
                 max-width: none;
             }
-            .title {
-                font-size: 20px;
-            }
-            .big {
-                font-size: 24px;
-            }
-            .stop-list {
-                max-height: 180px;
-            }
-            button, input {
-                padding: 12px;
-                font-size: 16px;
-            }
+            .title { font-size: 20px; }
+            .big { font-size: 24px; }
+            .stop-list { max-height: 180px; }
+            button, input { padding: 12px; font-size: 16px; }
         }
 
         .title {
@@ -74,10 +58,10 @@
             margin-bottom: 12px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
             gap: 8px;
-            letter-spacing: -0.3px;
         }
-
         .line {
             margin-top: 10px;
             font-size: 15px;
@@ -86,13 +70,11 @@
             align-items: baseline;
             justify-content: space-between;
         }
-
         .big {
             font-size: 26px;
             font-weight: 800;
             color: #ffb347;
         }
-
         .status-dot {
             width: 10px;
             height: 10px;
@@ -102,7 +84,6 @@
             margin-right: 8px;
             box-shadow: 0 0 4px #2ecc71;
         }
-
         .stop-list {
             margin-top: 18px;
             max-height: 200px;
@@ -112,7 +93,6 @@
             font-size: 14px;
             scrollbar-width: thin;
         }
-
         .stop {
             margin-top: 8px;
             padding: 6px 8px;
@@ -123,21 +103,21 @@
             align-items: center;
             word-break: break-word;
         }
-
+        .stop-index {
+            font-weight: bold;
+            background: #4da3ff30;
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 12px;
+            margin-right: 8px;
+        }
         .next-stop {
             background: rgba(77, 163, 255, 0.3);
             border-left: 4px solid #4da3ff;
             font-weight: 600;
             color: #c7e2ff;
         }
-
-        input, button {
-            border: none;
-            border-radius: 40px;
-            font-weight: 500;
-            outline: none;
-        }
-
+        input, button { border: none; border-radius: 40px; font-weight: 500; outline: none; }
         input {
             width: 100%;
             margin-top: 10px;
@@ -148,19 +128,13 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: 0.2s;
         }
-
-        input:focus {
-            border-color: #4da3ff;
-            background: #1e1e2a;
-        }
-
+        input:focus { border-color: #4da3ff; background: #1e1e2a; }
         .button-group {
             display: flex;
             gap: 10px;
             margin-top: 12px;
             flex-wrap: wrap;
         }
-
         button {
             background: #2c3e66;
             color: white;
@@ -171,55 +145,26 @@
             flex: 1;
             font-weight: 600;
         }
-
-        button.primary {
-            background: #4da3ff;
-            box-shadow: 0 2px 6px rgba(77, 163, 255, 0.3);
-        }
-
-        button.danger {
-            background: #6b2e2e;
-        }
-
-        button:hover {
-            opacity: 0.9;
-            transform: scale(0.98);
-        }
-
+        button.primary { background: #4da3ff; box-shadow: 0 2px 6px rgba(77,163,255,0.3); }
+        button.danger { background: #6b2e2e; }
+        button:hover { opacity: 0.9; transform: scale(0.98); }
         .coord-row {
             display: flex;
             gap: 8px;
             margin-top: 8px;
         }
-
-        .coord-row input {
-            flex: 1;
-            margin-top: 0;
-        }
-
-        .flex-between {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        hr {
-            margin: 16px 0 12px;
-            border: none;
-            border-top: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .label-icon {
-            font-weight: 500;
+        .coord-row input { flex: 1; margin-top: 0; }
+        hr { margin: 16px 0 12px; border: none; border-top: 1px solid rgba(255,255,255,0.15); }
+        .label-icon { font-weight: 500; font-size: 13px; opacity: 0.8; margin-top: 8px; margin-bottom: 4px; }
+        .route-stats {
+            background: rgba(0,0,0,0.4);
+            border-radius: 20px;
+            padding: 6px 12px;
+            margin-top: 10px;
             font-size: 13px;
-            opacity: 0.8;
-            margin-top: 8px;
-            margin-bottom: 4px;
+            text-align: center;
         }
-
-        .leaflet-control-attribution {
-            display: none;
-        }
+        .leaflet-control-attribution { display: none; }
     </style>
 </head>
 <body>
@@ -256,21 +201,24 @@
         <span id="lastUpdate">—</span>
     </div>
 
+    <!-- Блок с информацией о маршруте (общая длина, кол-во остановок) -->
+    <div id="routeStats" class="route-stats">📏 Маршрут: не построен</div>
+
     <div class="stop-list" id="stopList"></div>
 
-    <!-- Блок редактора (только для send mode) -->
+    <!-- Редактор для Send Mode (добавление остановок с координатами) -->
     <div id="editor" style="display:none">
         <hr>
         <div class="label-icon">🏷️ Название остановки</div>
         <input type="text" id="stopName" placeholder="Например: Центральный вокзал" autocomplete="off">
 
-        <div class="label-icon">⏱️ Время (ETA формата 14:25 или текст)</div>
+        <div class="label-icon">⏱️ Время прибытия (ETA)</div>
         <input type="text" id="stopTime" placeholder="14:25 или '5 мин'" autocomplete="off">
 
         <div class="label-icon">🌐 Координаты (широта / долгота)</div>
         <div class="coord-row">
-            <input type="number" id="stopLat" step="any" placeholder="Широта (lat)" value="">
-            <input type="number" id="stopLon" step="any" placeholder="Долгота (lon)" value="">
+            <input type="number" id="stopLat" step="any" placeholder="Широта" value="">
+            <input type="number" id="stopLon" step="any" placeholder="Долгота" value="">
         </div>
 
         <div class="button-group">
@@ -282,13 +230,13 @@
             <button id="clearRouteBtn" class="danger" type="button">🗑️ Очистить маршрут</button>
         </div>
         <div style="font-size: 12px; margin-top: 8px; opacity:0.7; text-align:center;">
-            💡 Введите lat/lon вручную или нажмите «Моё местоположение»
+            💡 Нажмите «Моё местоположение» → координаты заполнятся → добавьте остановку. Маршрут строится автоматически через все точки по порядку.
         </div>
     </div>
 </div>
 
 <script>
-    // ----------------------------- FIREBASE -----------------------------
+    // --------------------------- FIREBASE ---------------------------
     const firebaseConfig = {
         apiKey: "AIzaSyAhBIzshLpZFRCt8ndMwWgSApkoL61lYW0",
         authDomain: "geoformytrip.firebaseapp.com",
@@ -302,49 +250,74 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // ----------------------------- MAP -----------------------------
+    // --------------------------- MAP ---------------------------
     const map = L.map('map', { zoomControl: true }).setView([50.63, 3.06], 13);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© OpenStreetMap'
     }).addTo(map);
 
-    // ----------------------------- ОБЩИЕ ПЕРЕМЕННЫЕ -----------------------------
-    let stops = [];            // массив объектов остановок {id, name, time, lat, lon}
+    // --------------------------- ОБЩИЕ ПЕРЕМЕННЫЕ ---------------------------
+    let stops = [];            // массив {id, name, time, lat, lon, created}
     let stopMarkers = [];
     let routeLine = null;
     let vehicleMarker = null;
 
-    // Иконка транспорта
-    const vehicleIcon = L.divIcon({
-        html: "🚆",
-        className: "vehicle-marker",
-        iconSize: [36, 36],
-        popupAnchor: [0, -10]
-    });
-
-    // Инициализация маркера (будет использоваться в mode=view)
+    const vehicleIcon = L.divIcon({ html: "🚆", className: "vehicle-marker", iconSize: [36, 36], popupAnchor: [0, -10] });
     vehicleMarker = L.marker([50.63, 3.06], { icon: vehicleIcon }).addTo(map);
 
-    // ----------------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ -----------------------------
-    function distance(lat1, lon1, lat2, lon2) {
-        const dx = (lat1 - lat2) * 111000;
-        const dy = (lon1 - lon2) * 88000;
-        return Math.sqrt(dx * dx + dy * dy);
+    // --------------------------- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---------------------------
+    // Haversine формула для точного расстояния в км
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // км
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
     }
 
-    // Обновление ближайшей остановки на основе текущей позиции
+    // Рассчитать общую длину маршрута (последовательное соединение точек)
+    function calculateTotalRouteLength() {
+        if (stops.length < 2) return 0;
+        let total = 0;
+        for (let i = 0; i < stops.length - 1; i++) {
+            total += haversineDistance(stops[i].lat, stops[i].lon, stops[i+1].lat, stops[i+1].lon);
+        }
+        return total;
+    }
+
+    // Обновить отображение статистики маршрута (длина, кол-во остановок)
+    function updateRouteStatsUI() {
+        const totalLength = calculateTotalRouteLength();
+        const statsDiv = document.getElementById("routeStats");
+        if (stops.length === 0) {
+            statsDiv.innerHTML = "📏 Маршрут: нет остановок";
+        } else if (stops.length === 1) {
+            statsDiv.innerHTML = `📍 1 остановка. Добавьте ещё точки для построения маршрута.`;
+        } else {
+            statsDiv.innerHTML = `🚏 ${stops.length} остановок | 📏 Длина маршрута: ${totalLength.toFixed(2)} км`;
+        }
+    }
+
+    function distanceSimple(lat1, lon1, lat2, lon2) {
+        const dx = (lat1 - lat2) * 111000;
+        const dy = (lon1 - lon2) * 88000;
+        return Math.sqrt(dx*dx + dy*dy);
+    }
+
     function updateNearestStop(lat, lon) {
         if (!stops.length) {
             document.getElementById("nextStop").innerText = "—";
             document.getElementById("eta").innerText = "—";
             return;
         }
-
         let nearest = null;
         let bestDist = Infinity;
         stops.forEach(stop => {
-            const d = distance(lat, lon, stop.lat, stop.lon);
+            const d = distanceSimple(lat, lon, stop.lat, stop.lon);
             if (d < bestDist) {
                 bestDist = d;
                 nearest = stop;
@@ -353,7 +326,6 @@
         if (nearest) {
             document.getElementById("nextStop").innerText = nearest.name;
             document.getElementById("eta").innerText = nearest.time || "—";
-            // Подсветка в списке
             document.querySelectorAll(".stop").forEach(el => el.classList.remove("next-stop"));
             const activeElem = document.getElementById("stop-" + nearest.id);
             if (activeElem) activeElem.classList.add("next-stop");
@@ -363,9 +335,9 @@
         }
     }
 
-    // Отрисовка маршрута и списка остановок из массива stops
+    // Полная отрисовка маршрута: маркеры остановок, полилиния, список с индексами
     function renderRouteAndStops() {
-        // Очистить старые маркеры и линии
+        // удаляем старые слои
         stopMarkers.forEach(m => map.removeLayer(m));
         stopMarkers = [];
         if (routeLine) map.removeLayer(routeLine);
@@ -373,54 +345,59 @@
 
         const stopListDiv = document.getElementById("stopList");
         stopListDiv.innerHTML = "";
-
-        if (!stops.length) return;
+        if (!stops.length) {
+            updateRouteStatsUI();
+            return;
+        }
 
         const coords = [];
-        // сортируем остановки по времени? но в исходном порядке как в объекте — оставим порядок добавления. 
-        // но в объекте Firebase ключи не упорядочены, поэтому лучше хранить массив stops, который уже в порядке добавления.
-        // При загрузке из базы данные приходят в произвольном порядке, но мы в loadRoute пересобираем stops в том порядке,
-        // который получаем из entries. Чтобы сохранить порядок, лучше использовать массив, а ID прикреплять.
-        // У нас stops - массив, наполненный в том порядке, в котором ключи итерируются. Но для визуального порядка можно сортировать по created,
-        // но для простоты оставим как есть, но покажем в том порядке, как загружено. Можно добавить поле timestamp.
-        stops.forEach(stop => {
+        stops.forEach((stop, idx) => {
             coords.push([stop.lat, stop.lon]);
-            // маркер остановки
-            const marker = L.marker([stop.lat, stop.lon], {
-                title: stop.name
-            }).addTo(map).bindPopup(`<b>${stop.name}</b><br>${stop.time || "без времени"}`);
+            // маркер на карте
+            const marker = L.marker([stop.lat, stop.lon], { title: `${idx+1}. ${stop.name}` })
+                .addTo(map)
+                .bindPopup(`<b>${idx+1}. ${stop.name}</b><br>${stop.time ? "🕒 "+stop.time : ""}`);
             stopMarkers.push(marker);
 
-            // пункт в списке остановок
+            // элемент списка остановок с порядковым номером
             const div = document.createElement("div");
             div.className = "stop";
             div.id = "stop-" + stop.id;
-            div.innerHTML = `<span>${stop.time ? stop.time + " — " : ""}${stop.name}</span>`;
+            div.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span class="stop-index">${idx+1}</span>
+                    <span>${stop.name}</span>
+                </div>
+                <span style="opacity:0.7;">${stop.time || "—"}</span>
+            `;
             stopListDiv.appendChild(div);
         });
 
-        // Рисуем полилинию маршрута, если >= 2 точки
+        // Построение маршрута — ЛИНИЯ, соединяющая ВСЕ точки последовательно
         if (coords.length >= 2) {
             routeLine = L.polyline(coords, {
-                color: '#4da3ff',
+                color: '#ffaa44',
                 weight: 5,
-                smoothFactor: 1.5,
-                opacity: 0.85
+                smoothFactor: 1.2,
+                opacity: 0.9,
+                dashArray: '8, 6',   // прерывистая линия для эстетики
+                lineJoin: 'round'
             }).addTo(map);
-            map.fitBounds(routeLine.getBounds().pad(0.1));
+            // Автоматически подогнать карту под весь маршрут
+            map.fitBounds(routeLine.getBounds().pad(0.12));
         } else if (coords.length === 1) {
             map.setView([coords[0][0], coords[0][1]], 14);
         }
+
+        updateRouteStatsUI(); // обновляем длину и количество остановок
     }
 
-    // Загрузка маршрута из Firebase (коллекция "route")
+    // Загрузка маршрута из Firebase
     function loadRoute() {
         db.ref("route").on("value", snap => {
             const data = snap.val();
             stops = [];
-
             if (data) {
-                // Преобразуем объект в массив, сохраняя id и сортируя по created (если есть) для логичного порядка
                 const tempStops = [];
                 Object.entries(data).forEach(([id, stopData]) => {
                     tempStops.push({
@@ -432,39 +409,26 @@
                         created: stopData.created || 0
                     });
                 });
-                // Сортировка по времени создания (старые первыми - порядок маршрута)
+                // сортировка по времени создания -> порядок маршрута
                 tempStops.sort((a, b) => (a.created || 0) - (b.created || 0));
                 stops = tempStops;
             }
             renderRouteAndStops();
-
-            // Если в view-режиме уже есть данные о позиции, обновить ближайшую остановку
             const currentLive = window._currentLiveData;
-            if (currentLive) {
-                updateNearestStop(currentLive.lat, currentLive.lon);
-            }
+            if (currentLive) updateNearestStop(currentLive.lat, currentLive.lon);
         });
     }
 
-    // Добавление остановки (send mode - берём данные из полей)
+    // Добавление остановки в Send-режиме
     function addStopFromForm() {
         const name = document.getElementById("stopName").value.trim();
         const time = document.getElementById("stopTime").value.trim();
         let lat = parseFloat(document.getElementById("stopLat").value);
         let lon = parseFloat(document.getElementById("stopLon").value);
 
-        if (!name) {
-            alert("Введите название остановки");
-            return;
-        }
-        if (isNaN(lat) || isNaN(lon)) {
-            alert("Введите корректные координаты (широту и долготу) или нажмите 'Моё местоположение'");
-            return;
-        }
-        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-            alert("Координаты выходят за допустимые пределы (-90..90, -180..180)");
-            return;
-        }
+        if (!name) { alert("Введите название остановки"); return; }
+        if (isNaN(lat) || isNaN(lon)) { alert("Введите координаты или нажмите 'Моё местоположение'"); return; }
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) { alert("Координаты вне допустимого диапазона"); return; }
 
         const newStop = {
             name: name,
@@ -473,159 +437,108 @@
             lon: lon,
             created: Date.now()
         };
-
         db.ref("route").push(newStop).then(() => {
-            // Очистим форму после успешного добавления
+            // Очистка полей
             document.getElementById("stopName").value = "";
             document.getElementById("stopTime").value = "";
             document.getElementById("stopLat").value = "";
             document.getElementById("stopLon").value = "";
-            // Небольшая обратная связь
             const btn = document.getElementById("addStopBtn");
-            const originalText = btn.innerText;
-            btn.innerText = "✓ Добавлено!";
-            setTimeout(() => { btn.innerText = originalText; }, 1200);
-        }).catch(err => {
-            alert("Ошибка при добавлении: " + err.message);
-        });
+            const original = btn.innerText;
+            btn.innerText = "✅ Добавлено!";
+            setTimeout(() => { btn.innerText = original; }, 1000);
+        }).catch(err => alert("Ошибка: " + err.message));
     }
 
-    // Очистка всего маршрута
     function clearFullRoute() {
-        if (confirm("⚠️ Удалить все остановки маршрута безвозвратно?")) {
-            db.ref("route").remove().then(() => {
-                alert("Маршрут очищен");
-            }).catch(e => alert("Ошибка: " + e.message));
+        if (confirm("⚠️ Удалить все остановки маршрута?")) {
+            db.ref("route").remove().then(() => alert("Маршрут очищен"));
         }
     }
 
-    // Заполнить поля координат текущей геопозицией (для send mode)
     function fillCurrentLocation() {
-        if (!navigator.geolocation) {
-            alert("Геолокация не поддерживается браузером");
-            return;
-        }
+        if (!navigator.geolocation) { alert("Геолокация не поддерживается"); return; }
         navigator.geolocation.getCurrentPosition(
             pos => {
                 document.getElementById("stopLat").value = pos.coords.latitude.toFixed(6);
                 document.getElementById("stopLon").value = pos.coords.longitude.toFixed(6);
-                // дополнительный визуальный фидбек
                 const btn = document.getElementById("useMyLocationBtn");
                 const orig = btn.innerText;
-                btn.innerText = "✅ Готово";
-                setTimeout(() => { btn.innerText = orig; }, 1500);
+                btn.innerText = "📍 Готово";
+                setTimeout(() => { btn.innerText = orig; }, 1200);
             },
-            err => {
-                console.warn(err);
-                alert("Не удалось получить геопозицию: " + (err.message || "проверьте разрешения"));
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
+            err => { alert("Ошибка геолокации: " + err.message); },
+            { enableHighAccuracy: true, timeout: 8000 }
         );
     }
 
-    // ----------------------------- РЕЖИМ ОТПРАВКИ (SEND) -----------------------------
+    // --------------------------- РЕЖИМ ОТПРАВКИ (SEND) ---------------------------
     function initSendMode() {
         document.getElementById("status").innerText = "📡 Телефон отправляет GPS";
         document.getElementById("modeBadge").innerText = "📤 SEND MODE";
         document.getElementById("editor").style.display = "block";
-        // Навешиваем события на кнопки в редакторе
+
         document.getElementById("addStopBtn").onclick = addStopFromForm;
         document.getElementById("clearRouteBtn").onclick = clearFullRoute;
         document.getElementById("useMyLocationBtn").onclick = fillCurrentLocation;
 
         // Отправка геолокации каждые 2 секунды
-        let sendInterval = setInterval(() => {
+        setInterval(() => {
             if (!navigator.geolocation) return;
             navigator.geolocation.getCurrentPosition(
                 pos => {
                     const lat = pos.coords.latitude;
                     const lon = pos.coords.longitude;
                     const speed = (pos.coords.speed || 0) * 3.6;
-                    db.ref("live").set({
-                        lat: lat,
-                        lon: lon,
-                        speed: speed,
-                        time: Date.now()
-                    }).catch(console.warn);
-                    // Также можно отображать скорость на панели (для обратной связи)
-                    const speedElem = document.getElementById("speed");
-                    if (speedElem) speedElem.innerText = Math.round(speed);
+                    db.ref("live").set({ lat, lon, speed, time: Date.now() }).catch(console.warn);
+                    document.getElementById("speed").innerText = Math.round(speed);
                     document.getElementById("lastUpdate").innerText = new Date().toLocaleTimeString();
-
-                    // В send mode тоже полезно видеть своё местоположение на карте
-                    if (vehicleMarker) {
-                        vehicleMarker.setLatLng([lat, lon]);
-                        map.panTo([lat, lon], { animate: true, duration: 0.5 });
-                    }
-                    // Обновить ближайшую остановку (если маршрут загружен)
+                    if (vehicleMarker) vehicleMarker.setLatLng([lat, lon]);
                     updateNearestStop(lat, lon);
+                    // смещаем центр карты за телефоном
+                    map.panTo([lat, lon], { animate: true, duration: 0.5 });
                 },
-                err => {
-                    console.warn("GPS ошибка:", err);
-                    document.getElementById("status").innerHTML = "⚠️ Ошибка GPS";
-                },
+                err => { document.getElementById("status").innerHTML = "⚠️ Ошибка GPS"; },
                 { enableHighAccuracy: true, maximumAge: 2000, timeout: 8000 }
             );
         }, 2000);
-
-        // сохраняем interval для очистки (необязательно)
-        window._sendInterval = sendInterval;
     }
 
-    // ----------------------------- РЕЖИМ ПРОСМОТРА (VIEW) -----------------------------
+    // --------------------------- РЕЖИМ ПРОСМОТРА (VIEW) ---------------------------
     function initViewMode() {
         document.getElementById("status").innerText = "📱 Планшет получает GPS";
         document.getElementById("modeBadge").innerText = "👁️ VIEW MODE";
         document.getElementById("editor").style.display = "none";
-
-        // Слушаем обновления от Firebase "live"
         db.ref("live").on("value", snap => {
             const data = snap.val();
             if (!data) return;
             window._currentLiveData = data;
-            // Обновляем маркер
-            if (vehicleMarker) {
-                vehicleMarker.setLatLng([data.lat, data.lon]);
-                map.panTo([data.lat, data.lon], { animate: true, duration: 0.8 });
-            }
+            if (vehicleMarker) vehicleMarker.setLatLng([data.lat, data.lon]);
+            map.panTo([data.lat, data.lon], { animate: true, duration: 0.8 });
             document.getElementById("speed").innerText = Math.round(data.speed || 0);
             document.getElementById("lastUpdate").innerText = new Date(data.time).toLocaleTimeString();
-            // ближайшая остановка (используем загруженный маршрут)
-            if (stops.length) {
-                updateNearestStop(data.lat, data.lon);
-            }
+            if (stops.length) updateNearestStop(data.lat, data.lon);
         });
     }
 
-    // ----------------------------- ОПРЕДЕЛЕНИЕ РЕЖИМА ПО ПАРАМЕТРУ mode -----------------------------
+    // --------------------------- ЗАПУСК В ЗАВИСИМОСТИ ОТ РЕЖИМА ---------------------------
     const urlParams = new URLSearchParams(window.location.search);
-    const mode = urlParams.get("mode"); // "send" или "view"
+    const mode = urlParams.get("mode");
 
-    // Загружаем маршрут (общая логика)
     loadRoute();
-
-    // Активируем нужный режим
     if (mode === "send") {
         initSendMode();
-        // дополнительно: показываем кнопки управления картой для удобства на телефоне
         map.zoomControl.setPosition('bottomright');
     } else {
         initViewMode();
-        // если view режим, добавляем подсказку, что редактирование скрыто
         map.zoomControl.setPosition('bottomright');
     }
 
-    // Небольшой трюк: если в send mode и нет данных о остановках, можно ориентировать карту
-    // также для телефонов улучшим поведение при клике на маркеры и масштабирование
+    // Небольшая адаптация: если маршрут загружен и нет транспорта, показываем маршрут
     setTimeout(() => {
-        if (stops.length === 0 && mode !== "send") {
-            // просто показываем карту по умолчанию
-            map.setView([50.63, 3.06], 13);
-        } else if (stops.length && mode !== "send") {
-            try {
-                const bounds = L.latLngBounds(stops.map(s => [s.lat, s.lon]));
-                map.fitBounds(bounds.pad(0.1));
-            } catch(e) {}
+        if (stops.length > 1 && mode !== "send") {
+            const bounds = L.latLngBounds(stops.map(s => [s.lat, s.lon]));
+            map.fitBounds(bounds.pad(0.1));
         }
     }, 500);
 </script>
